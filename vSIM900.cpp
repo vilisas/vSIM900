@@ -9,53 +9,62 @@
 #include "vSIM900.h"
 //#include <Arduino.h>
 #include <HardwareSerial.h>
-#include <avr/wdt.h>
+
+#ifdef USE_WATCHDOG
+# include <avr/wdt.h>
+#endif
 
 VSIM900* VSIM900::_inst;
 
-VSIM900::VSIM900(HardwareSerial& hwPort, int baud) {
+// constructor
+VSIM900::VSIM900(HardwareSerial& hwPort, uint32_t baud) {
 	// TODO Auto-generated constructor stub
 	_inst = this;
 	_serialPort = &hwPort;
 	_baudRate = baud;
-//	debug= nullptr;
 
 	resetModemStates();
 }
 
+// destructor
 VSIM900::~VSIM900() {
 	// TODO Auto-generated destructor stub
 }
 
-void VSIM900::switchModem(uint8_t switchPin){
-	wdt_reset();
-	  digitalWrite(switchPin, LOW);
+void VSIM900::switchModem(){
+	if (_switch_pin == 0) return;
+	_wdr();
+	  digitalWrite(_switch_pin, LOW);
 	  delay(500);
-	  digitalWrite(switchPin, HIGH);
+	  digitalWrite(_switch_pin, HIGH);
 	  delay(1100);
-	  digitalWrite(switchPin, LOW);
-	wdt_reset();
+	  digitalWrite(_switch_pin, LOW);
+	_wdr();
 }
 
-void VSIM900::resetModem(uint8_t resetPin){
-	wdt_reset();
-	  digitalWrite(resetPin, LOW);
+void VSIM900::resetModem(){
+	if (_reset_pin == 0) return;
+	_wdr();
+	  digitalWrite(_reset_pin, LOW);
 	  delay(500);
-	  digitalWrite(resetPin, HIGH);
+	  digitalWrite(_reset_pin, HIGH);
 	  delay(500);
-	  digitalWrite(resetPin, LOW);
-	wdt_reset();
+	  digitalWrite(_reset_pin, LOW);
+	_wdr();
 }
 
-int VSIM900::sendATCommand(const String& cmd, unsigned int dWait=200, char retries=2, bool ignoreErrors=false){
+
+
+int VSIM900::sendATCommand(const String& cmd, unsigned int dWait, char retries, bool ignoreErrors){
 // kai ignoreErrors = false, tai nutraukiam cikla ir aptike klaida
 // kai ignoreErrors = true, tai cikla kartojam net ir aptike klaida. To reikia, kai tikrinam pvz PIN busena
+	_debug("sendATCommand" + cmd);
   uint8_t i=0;
   modem.status=msUNKNOWN;
   _serialPort->setTimeout(1000);
 
   do {
-	wdt_reset();
+	_wdr();
 //    Serial.print("\n");
     _serialPort->println(cmd);
     delay(dWait);
@@ -88,78 +97,75 @@ int VSIM900::sendATCommandChar(char *cmd){
 }
 
 
-
+/*
+ * you can call this from main loop or serialEvent() in main skech
+ */
 void VSIM900::serialEvent(){
-	/*
-	 * you can call this from main loop or serialEvent() in main skech
-	 */
 	if (_serialPort->available()) {
 		readModemResponse();
 	}
 }
 
+/*
+ * initializes modem, also set's up GPRS connection
+ */
 int VSIM900::initModem(){
   char counter, i = 0;
   String temp;
   modem.rssi = 99;
   modem.ber  = 99;
-  wdt_reset();
+  _wdr();
   resetModemStates();
+  _blink(250,1);
   i=sendATCommand(F("ATE0"));
   if ((modem.status == 0) or (modem.status == msERROR)) {
     modem.init_failure_counter++;
-    debug(F("+MODEM:INIT_ERROR"));
+    _debug(F("+MODEM:INIT_ERROR"));
     return(meINIT);
   } else {
-    debug(F("+MODEM:ALIVE"));
+    _debug(F("+MODEM:ALIVE"));
     modem.init_failure_counter = 0;
   }
-//  analogWrite(13, 30);
+  _blink(100,2);
   i = sendATCommand(F("AT+CPIN?"),1000,5,true);
 
-  if (!modem.pin_ok) { debug(F("PIN FAILED")); return(mePIN); } else debug(F("PIN OK"));
+  if (!modem.pin_ok) { _debug(F("PIN FAILED")); return(mePIN); } else _debug(F("PIN OK"));
 // reset connection by default
   delay(1000);
   i = sendATCommand(F("AT+DDET=1"),200, 3, true);
   if (i == msERROR) {
-	  debug(F("DTMF detector init failed"));
-#ifdef DTMF_REQUIRED
-	  return(meDTMF);
-#endif
-  } else debug(F("DTMF OK"));
+	  _debug(F("DTMF detector init failed"));
+	  if (_dtmf_required){ return(meDTMF); }
 
+  } else _debug(F("DTMF OK"));
+  _blink(100,3);
 //  delay (500);
-//  sendATCommand(F("ATH0"));  // if any..
+  sendATCommand(F("ATH0"));  // if any..
 //  delay(200);
   modemHangUp();
   sendATCommand(F("AT+CIPSHUT"));
 
   delay(2000);
-//  temp = "NET";
   i=15;		// kiek kartu tikrinti tinklo busena, kol pasiduosim.
-
-//   wdt_reset();
+  _blink(100,4);
+//   _wdr();
   do{
 	  i--;
-  //  delay(250);
     sendATCommand(F("AT+CREG?"),1000,1,true);
-//    if (modem.response.substring(0,6) == "+CREG:"){
     if (strncmp(modem.response, "+CREG:", 6)== 0){
   // +CREG: 0,1
         temp = modem.response;		//.substring(9,1);
         modem.network_ok = (modem.response[9]=='1');	// arduino bug ??? (9,1) grazina "+CREG: 0,"
-//        modem.network_ok = (modem.response.substring(9)=="1");	// arduino bug ??? (9,1) grazina "+CREG: 0,"
         if (modem.network_ok) i=0;
    }
-//    temp = temp + ".";
-#ifdef DEBUGMODE
-   debug(temp);
-#endif
   } while (i>0);
 	temp = "";
-//   blink(30,5);
 
-  if (modem.network_ok) {debug(F("NETWORK OK")); } else {debug(F("Net Not Ready")); return(meNETWORK);}
+
+  if (modem.network_ok) {_debug(F("NETWORK OK")); } else {_debug(F("Net Not Ready")); return(meNETWORK);}
+  _blink(500,1);
+  _blink(100,1);
+
    delay(2000);
 counter=0;
 
@@ -169,43 +175,50 @@ do {
   modem.gprs_ok = (modem.response[8]=='1');
   if (modem.gprs_ok) {counter=8;} else counter++;  // counter=5
 } while (counter<6); // counter<3
-  if (modem.gprs_ok) {debug(F("GPRS OK")); } else {debug(F("GPRS Failed")); return(meGPRS);}
+  if (modem.gprs_ok) {_debug(F("GPRS OK")); } else {_debug(F("GPRS Failed")); return(meGPRS);}
 
+  _blink(500,1);
+  _blink(100,2);
 
-// duomenu gavimui hex formatu
-//   analogWrite(13, 130);
 i = sendATCommand(F("AT+CIPRXGET=1"), 1000, 2, true);
-	if (i==msOK) {debug(F("+CIPRXGET: OK")); } else {debug(F("+CIPRXGET: FAIL?"));}
-delay(200);
+	if (i==msOK) {_debug(F("+CIPRXGET: OK")); } else {_debug(F("+CIPRXGET: FAIL?"));}
 counter=0;
+
+_blink(500,1);
+_blink(100,3);
+
 do {
-//i = sendATCommand(F("AT+CSTT=" GPRS_APN), 2000, 2, true);
 	i = sendATCommand("AT+CSTT=\"" + String(_modemAPN) + "\"", 2000, 2, true);
   if (i==msOK) {counter=3;} else counter++;
 } while (counter<3);
 
-  if (i==msOK) {debug(F("APN OK")); } else {debug(F("APN? SOFT RST?"));}
+  if (i==msOK) {_debug(F("APN OK")); } else {_debug(F("APN? SOFT RST?"));}
+  _blink(500,1);
+  _blink(100,4);
 
   i = sendATCommand(F("AT+CIICR"), 2000, 4, true);
-  if (i==msOK) {debug(F("CIICR OK")); } else {debug(F("CIICR Failed?")); return(meCIICR);}
+  if (i==msOK) {_debug(F("CIICR OK")); } else {_debug(F("CIICR Failed?")); return(meCIICR);}
 
 // jei negaunam ip adreso, tai kazkas tikrai negerai..
-delay(1000);
+  delay(1000);
+  _blink(500,1);
+  _blink(100,5);
 i = sendATCommand(F("AT+CIFSR"), 1000, 1, true);
-//	modem.ip_address = String(modem.response);
 	strncpy(modem.ip_address, modem.response, sizeof(modem.ip_address));
-	debug(F("po CIFSR:"));
-	debug(modem.response);
-	debug(modem.ip_address);
-// modem.ip_address = String(modem.response);
+	_debug(F("po CIFSR:"));
+	_debug(modem.response);
+	_debug(modem.ip_address);
  if (strlen(modem.ip_address) > 0) {
-	 debug("IP:"+ String(modem.ip_address));
+	 _debug("IP:"+ String(modem.ip_address));
  } else {
-	 debug(F("IP failed"));
+	 _debug(F("IP failed"));
 	 return(meIP);
  }
 
   modem.initialized = true;
+  _blink(500,1);
+  _blink(100,6);
+
   // server port
 
   #ifndef TCP_CLIENT
@@ -219,7 +232,7 @@ i = sendATCommand(F("AT+CIFSR"), 1000, 1, true);
 
   sendATCommand(F("AT+CSQ"),200);
 
-  debug(F("INIT Finished.."));
+  _debug(F("INIT Finished.."));
   return(msINIT_COMPLETED);
 //  delay (500);
 
@@ -349,26 +362,26 @@ int VSIM900::setModemStatus(char *eilute){
  else if (strcmp(eilute, "+CPIN: READY") == 0)   { modem.status = msPIN_READY; modem.pin_ok=true;    }
  else if (strcmp(eilute, "SERVER OK") == 0)   { modem.status = msSERVER_OK; modem.server_ok=true;    }
  else if (strcmp(eilute, "SERVER CLOSE") == 0)   { modem.status = msSERVER_CLOSE; modem.server_ok=false;    }
- else if (strncmp(eilute, "+CIPRXGET:1",11) == 0)   { modem.status = msDATA_AVAILABLE; modem.data_available=true; modem.datatimer=1; debug(F("+DATA_AVAIL"));   }
+ else if (strncmp(eilute, "+CIPRXGET:1",11) == 0)   { modem.status = msDATA_AVAILABLE; modem.data_available=true; modem.datatimer=1; _debug(F("+DATA_AVAIL"));   }
  else if (strncmp(eilute, "+CIPRXGET: 3",12) == 0)   {
 //     int bytesReceived = 0;
      modem.status = msDATA_RECEIVING_HEX;
 //     sscanf(&eilute[11], "%*d,%d,%d",&bytesReceived, &modem.hexBytesAvailable);
      sscanf(eilute+11, "%*d,%*d,%d", &modem.hexBytesAvailable);
-//     debug("HEX data..R/A"+String(bytesReceived, DEC)+"/"+String(modem.hexBytesAvailable, DEC) + " left");
+//     _debug("HEX data..R/A"+String(bytesReceived, DEC)+"/"+String(modem.hexBytesAvailable, DEC) + " left");
 //    debugA(eilute);
     return(modem.status);
 }
- else if (strcmp(eilute, "+PDP: DEACT") == 0)        { modem.status = msPDP_DEACT; resetModemStates(); debug(F("+PDP_DEACT"));    }
- else if (strcmp(eilute, "NORMAL POWER DOWN") == 0)  { modem.status = msPOWER_DOWN; resetModemStates(); debug(F("+MODEM_POWER_DOWN")); }
- else if (strncmp(eilute, "REMOTE IP:",10) == 0)   { modem.status = msCLIENT_CONNECTED; modem.connected = true; debug(F("+CLIENT_CONNECTED"));    }
- else if (strncmp(eilute, "CONNECT OK",10) == 0)   { modem.status = msCLIENT_CONNECTED; modem.connected = true; debug(F("+CLIENT_CONNECTED [CONNECT OK]"));    }
- else if (strncmp(eilute, "STATE: CONNECT OK",17) == 0)   { modem.status = msCLIENT_ONLINE; modem.connected = true; debug(F("+CLIENT_ONLINE"));    }
- else if (strncmp(eilute, "STATE: SERVER LIS",17) == 0)   { modem.status = msCLIENT_OFFLINE; modem.connected = false; debug(F("+CLIENT_OFFLINE"));    }
- else if (strcmp(eilute, "CLOSED") == 0)   { modem.status = msCLIENT_DISCONNECTED; modem.connected = false; modem.datatimer=0; debug(F("+CLIENT_DISCONNECTED"));    }
- else if (strcmp(eilute, ">") == 0)   { modem.status = ms_READY_TO_SEND; debug(F("Ready to send..")); return(modem.status);   }
- else if (strcmp(eilute, "SEND OK") == 0)   { modem.status = msSEND_OK; modem.canSendNewPacket = true; debug(F("+DATA_SENT"));    }
- else if (strncmp(eilute, "DATA ACCEPT", 11) == 0)   { modem.status = msDATA_ACCEPT; modem.canSendNewPacket = true; debug(F("+DATA_ACCEPTED"));    }
+ else if (strcmp(eilute, "+PDP: DEACT") == 0)        { modem.status = msPDP_DEACT; resetModemStates(); _debug(F("+PDP_DEACT"));    }
+ else if (strcmp(eilute, "NORMAL POWER DOWN") == 0)  { modem.status = msPOWER_DOWN; resetModemStates(); _debug(F("+MODEM_POWER_DOWN")); }
+ else if (strncmp(eilute, "REMOTE IP:",10) == 0)   { modem.status = msCLIENT_CONNECTED; modem.tcp_connected = true; _debug(F("+CLIENT_CONNECTED"));    }
+ else if (strncmp(eilute, "CONNECT OK",10) == 0)   { modem.status = msCLIENT_CONNECTED; modem.tcp_connected = true; _debug(F("+CLIENT_CONNECTED [CONNECT OK]"));    }
+ else if (strncmp(eilute, "STATE: CONNECT OK",17) == 0)   { modem.status = msCLIENT_ONLINE; modem.tcp_connected = true; _debug(F("+CLIENT_ONLINE"));    }
+ else if (strncmp(eilute, "STATE: SERVER LIS",17) == 0)   { modem.status = msCLIENT_OFFLINE; modem.tcp_connected = false; _debug(F("+CLIENT_OFFLINE"));    }
+ else if (strcmp(eilute, "CLOSED") == 0)   { modem.status = msCLIENT_DISCONNECTED; modem.tcp_connected = false; modem.datatimer=0; _debug(F("+CLIENT_DISCONNECTED"));    }
+ else if (strcmp(eilute, ">") == 0)   { modem.status = ms_READY_TO_SEND; _debug(F("Ready to send..")); return(modem.status);   }
+ else if (strcmp(eilute, "SEND OK") == 0)   { modem.status = msSEND_OK; modem.canSendNewPacket = true; _debug(F("+DATA_SENT"));    }
+ else if (strncmp(eilute, "DATA ACCEPT", 11) == 0)   { modem.status = msDATA_ACCEPT; modem.canSendNewPacket = true; _debug(F("+DATA_ACCEPTED"));    }
  else if (strncmp(eilute, "+DTMF:", 6) == 0) {
    char dtmf_code = eilute[6];
    modem.status = msDTMF_RECEIVED;
@@ -393,20 +406,21 @@ int VSIM900::setModemStatus(char *eilute){
   }
  else if (strncmp(eilute, MODEM_AT_COMMAND_PREFIX, MODEM_AT_CMD_PREFIX_LENGTH) == 0) {
    modem.status = msVALDIKLIS_PREFIX;
-   valdiklioKomanda(eilute+3, true);   // komanda valdikiui, siust atsakymus tiesiogiai i terminala
+   // komanda valdikiui, siust atsakymus tiesiogiai i terminala
+   if (valdiklioKomanda != nullptr) valdiklioKomanda(eilute+3, true);
  }
  else if (strncmp(eilute, "+CSQ:", 5) == 0) {
     int rssi;
     modem.status = msOTHER;
     sscanf(&eilute[5], "%i,%i", &modem.rssi, &modem.ber);
     rssi = -113 + (2 * modem.rssi);
-    debug("+RSSI:" + String(rssi, DEC) + " BER:" + String(modem.ber, DEC) + " ");
+    _debug("+RSSI:" + String(rssi, DEC) + " BER:" + String(modem.ber, DEC) + " ");
  }
  else if (strncmp(eilute, "+CMTE:", 6) == 0) {
     int detect;
     modem.status = msOTHER;
     sscanf(&eilute[6], "%i,%i", &detect, &modem.temperature);
-//    debug("+TEMP: " + String(modem.temperature, DEC) + " 'C");
+//    _debug("+TEMP: " + String(modem.temperature, DEC) + " 'C");
 
  }
 
@@ -424,7 +438,7 @@ return modem.status;
 
 void VSIM900::modemStatusChanged(){
 	if (modem.status == msNOCARIER){
-//	  debug(F("+MODEM:NO_CARRIER"));
+//	  _debug(F("+MODEM:NO_CARRIER"));
       modem.voice_connect_time = 0;
       modem.voice_connected = false;
       modem.voice_activated = false;
@@ -432,22 +446,22 @@ void VSIM900::modemStatusChanged(){
 //      if (!serviceModeActivated) soundRelay(OFF); // isjungt garsiakalbi, jei neaktyvuotas serviso rezimas
 //	  #endif
     }
-        onStatusChanged(modem.status);
+		if (onStatusChanged != nullptr) onStatusChanged(modem.status);
 }
 
 bool VSIM900::setAPN(const String& apn){
 	if (apn.length() >= sizeof(_modemAPN)){
-		debug(F("setAPN:APN>" STR(MODEM_MAX_APN_LENGTH)));
+		_debug(F("setAPN:APN>" STR(MODEM_MAX_APN_LENGTH)));
 		return false;
 	}
 	apn.toCharArray(_modemAPN,sizeof(_modemAPN));
-	debug(F("setAPN:OK"));
+	_debug(F("setAPN:OK"));
 	return true;
 }
 
 void VSIM900::modemAnswer(){
     sendATCommand(F("ATA"));
-//	  debug(F("+MODEM:VOICE_ANSWER"));
+//	  _debug(F("+MODEM:VOICE_ANSWER"));
     modem.voice_connect_time = 0;
     modem.voice_connected = true;
     modem.voice_activated = false;
@@ -468,6 +482,19 @@ void VSIM900::setup() {
 	_serialPort->begin(_baudRate);
 	_serialPort->setTimeout(1000);
 
+
+	if (_switch_pin != 0){
+		pinMode(_switch_pin, OUTPUT);		// modemo resetui pakibimo atvejais
+		digitalWrite(_switch_pin, LOW);
+	}
+
+	if (_reset_pin != 0) {
+		pinMode(_reset_pin, OUTPUT);
+		digitalWrite(_reset_pin, LOW);
+	}
+
+	_debug(F("vSIM900.setup() finished"));
+
 }
 
 /*
@@ -477,7 +504,7 @@ void VSIM900::loop() {
 	unsigned long ms = millis();
 
 	//	call only if time from last call is > 100 ms
-	if (ms - _loop_call_time > 100){
+	if (ms - _loop_call_time >= 100){
 		if (_serialPort->available()) {
 			readModemResponse();
 		}
@@ -485,43 +512,36 @@ void VSIM900::loop() {
 	}
 
 	// every 10 sec.
-	if (ms - _idle_connection_data_check_time > 10000){
+	if (ms - _idle_connection_data_check_time >= 10000){
 
 		_idle_connection_data_check_time = millis();
 	}
 
 
-
-
 	// timer every second
-	if (ms - _one_second_time > 1000){
+	if (ms - _one_second_time >= 1000) {
 
-		if (modem.connected) {
-			modem.datatimer++;
-			if (modem.hexBytesAvailable > 0)
-				modem.data_available = true; // jei buferyje liko nenuskaitytu duomenu..
-			if ((modem.datatimer % IDLE_CONNECTION_CHECK_FOR_DATA_SECONDS)
-					== 0) {
-				modem.data_available = true;
-				debug(F("asking for data.."));
-			}
-		} else {
-#ifdef TCP_CLIENT
-			modem.reconnect_timer++;
-			if (modem.reconnect_timer > TCP_CLIENT_RECONNECT_DELAY) {
-				modem.reconnect_timer = 0;
-				sendATCommand(F(TCP_CONNECT_COMMAND));
-				delay(250);
-				sendATCommand(F("AT+CIPQSEND=1"));
-				delay(500);
-			}
-#endif
+		if ((GET_TIMESTAMP % 3) == 0) {
+			blinkModemStatus();
 		}
 
+		doModemHealtCheck();
 
+		// check modem state, if not initialized for a while, start initialization procedure
+		if (!modem.initialized) { // and modem not initialized?
+//			_debug("resetTimer="+String(modem.resetTimer));
+//			_debug(String(millis()));
+			if (modem.resetTimer <= 0) {
+				modem.resetTimer = MODEM_RESET_DELAY;
 
-
-
+				_debug(F("+MODEM:RESET"));
+//		    delay(1000);
+				modemState i = initModem();
+				if (i != msINIT_COMPLETED){
+					_blink(25, 20);						// indicate problem by fast blinking LED
+				}
+			}
+		}
 
 		_one_second_time = millis();
 	}
@@ -529,7 +549,7 @@ void VSIM900::loop() {
 
 //    if ((modem.datatimer % IDLE_CONNECTION_CHECK_FOR_DATA_SECONDS) == 0) {
 //        modem.data_available=true;
-//        debug(F("asking for data.."));
+//        _debug(F("asking for data.."));
 //    }
 
 	if (modem.data_available){
@@ -552,7 +572,7 @@ void VSIM900::resetModemStates(){
   modem.initialized = false;
   modem.data_available= false;
   modem.ip_address[0]=0;
-  modem.connected = false;
+  modem.tcp_connected = false;
   modem.voice_connected = false;
   modem.receiving_data = false;
   _readModemResponseStarted = false;
@@ -575,7 +595,7 @@ void VSIM900::resetModemStates(){
 
 }
 
-int VSIM900::sendModemDataChar(char *dataToSend, int count=0){
+int VSIM900::sendModemDataChar(char *dataToSend, int count){
 //  char s;
 //  int i;
   modem.canSendNewPacket = false;
@@ -599,7 +619,7 @@ int VSIM900::sendModemDataString(const String& dataToSend){
     sendATCommand((atcmd),200,1,false);
     _serialPort->print(dataToSend);
 	modem.data_bytes_sent += dataToSend.length();
-	debug("SENT:"+dataToSend);
+	_debug("SENT:"+dataToSend);
 return(0);
 }
 
@@ -619,4 +639,63 @@ int VSIM900::hexToChar(char *src, char *dst, int count){
  // grazinam konvertuotu baitu skaiciu - 1
  i--;
  return(i);
+}
+
+void VSIM900::blinkModemStatus() {
+	_wdr();
+	if (modem.initialized)
+		_blink(100,1);
+	if (modem.tcp_connected)
+		_blink(100,1);
+	_blink(100,1);
+	if (modem.voice_connected) {
+		// TODO: store this as variable
+		digitalWrite(13, HIGH);
+	}
+}
+
+void VSIM900::doModemHealtCheck() {
+
+//	modem initialization
+	  if (!modem.initialized){
+	     if (modem.resetTimer >0) {
+	    	 modem.resetTimer--;
+	     }
+	     // switch modem power if init failed too many times
+	     if (modem.init_failure_counter >= MODEM_SWITCH_POWER_AFTER_FAILURES) {
+	    	 modem.init_failure_counter = 0;
+	    	 switchModem();
+	     }
+	  }
+// check if all data received from TCP connection
+		if (modem.tcp_connected) {
+			modem.datatimer++;
+			if (modem.hexBytesAvailable > 0)
+				modem.data_available = true; // jei buferyje liko nenuskaitytu duomenu..
+			if ((modem.datatimer % IDLE_CONNECTION_CHECK_FOR_DATA_SECONDS) == 0) {
+				modem.data_available = true;
+				_debug(F("asking for data.."));
+			}
+		} else {
+//TCP Client stuff originalioj programoj
+			}
+
+}
+
+void VSIM900::_blink(int time_ms, int count) {
+	if (blink != nullptr){
+		blink(time_ms, count);
+	}
+}
+
+void VSIM900::_debug(const String& tekstas) {
+	if (debug != nullptr){
+		debug(tekstas);
+	}
+}
+
+void VSIM900::_wdr() {
+#ifdef USE_WATCHDOG
+	wdt_reset();
+#endif
 }

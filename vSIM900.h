@@ -10,14 +10,6 @@
 #ifndef VSIM900_H_
 #define VSIM900_H_
 
-#ifndef MODEM_RESET_PIN
-# define MODEM_RESET_PIN 8
-#endif
-
-#ifndef MODEM_SWITCH_PIN
-# define MODEM_SWITCH_PIN 9
-#endif
-
 #ifndef MODEM_BUFFER_SIZE
 # define MODEM_BUFFER_SIZE 64
 #endif
@@ -30,8 +22,16 @@
 # define MODEM_MAX_APN_LENGTH 20
 #endif
 
-
 #define IDLE_CONNECTION_CHECK_FOR_DATA_SECONDS 10
+
+
+// po tiek nesekmingu bandymu pasikalbeti su modemu (initModem() pradine stadija = ATE0)
+// bandome ijungti modema is naujo (low, high, low seka MODEM_SWITCH_PIN)
+#define MODEM_SWITCH_POWER_AFTER_FAILURES 10
+
+// jei modemas neinicializuotas, arba atsijungem nuo gprs, ar nepavyko inicializacija, tai cia nurodomas
+// uzlaikymo laikas sekundemis, po kurios bus bandoma inicializuot modema is naujo
+#define MODEM_RESET_DELAY 20
 
 
 #ifndef GPRS_APN
@@ -42,14 +42,11 @@
 #define DTMF_TIMEOUT 5
 #define MODEM_AT_COMMAND_PREFIX "#!#"
 #define MODEM_AT_CMD_PREFIX_LENGTH 3
-//#define MODEM_AT_CMD_PREFIX_LENGTH sizeof(MODEM_AT_COMMAND_PREFIX);
-//#define MODEM_AT_CMD_PREFIX_LENGTH sizeof(MODEM_AT_COMMAND_PREFIX)
-
-//if DTMF is required, define it.
-//requires sim900 firmware, which supports it, or else modem init fails & returns meDTMF.
-#define DTMF_REQUIRED TRUE
 
 #define COMMAND_ASK_FOR_TCP_DATA "AT+CIPRXGET=3,30"
+
+//#define USE_WATCHDOG 1
+
 
 enum modemError{
 	meINIT, mePIN, meNETWORK, meGPRS, meIP, meCIICR, meDTMF
@@ -73,7 +70,7 @@ struct GModem{
     bool server_ok;
     bool initialized;
     bool data_available;
-    bool connected;
+    bool tcp_connected;
     bool voice_connected;
     bool voice_activated;
     bool receiving_data;
@@ -81,7 +78,7 @@ struct GModem{
     bool has_dtmf;
     bool sendATResponseToClient;
     bool canSendNewPacket;
-    char resetTimer;
+    unsigned int resetTimer;
     char dtmftimer;
     char datatimer;
     char init_failure_counter;
@@ -116,20 +113,21 @@ struct GModem{
 
 class VSIM900  {
 public:
-	VSIM900(HardwareSerial& hwPort, int baud);
+	VSIM900(HardwareSerial& hwPort, uint32_t baud);
 	virtual ~VSIM900();
 	void setup();
 	void loop();
-	void switchModem(uint8_t switchPin);
-	void resetModem(uint8_t resetPin);
+	void switchModem();
+	void resetModem();
 	int sendATCommand(const String& cmd, unsigned int dWait=200, char retries=2, bool ignoreErrors=false);
 	int sendATCommandChar(char *cmd);
 	int sendModemDataChar(char *dataToSend, int count=0);
 	bool setAPN(const String& apn);
-//	void debug(const String& tekstas);
 	void (*debug)(const String& tekstas) = nullptr;
 	void (*valdiklioKomanda)(char *commandLine, bool toSerial = false) = nullptr;
 	void (*onStatusChanged)(modemState status) = nullptr;
+	void (*blink)(int delay, int count) = nullptr;
+
 	int hexToChar(char *src, char *dst, int count);
 	int sendModemDataString(const String& dataToSend);
 	int initModem();
@@ -138,18 +136,22 @@ public:
 	void modemHangUp();
 	void askForTCPData();
 	void serialEvent();
-	uint16_t getTimeStamp(){ return(GET_TIMESTAMP);};
+	uint16_t getTimeStamp() 			 { return GET_TIMESTAMP; 	}
+	void setResetPin(uint8_t resetPin) 	 { _reset_pin 	= resetPin;	}
+	void setSwitchPin(uint8_t switchPin) { _switch_pin 	= switchPin;}
+	void setDTMFRequired(bool state)	 { _dtmf_required = state;	}
 	GModem   modem;
 
 private:
 	HardwareSerial* _serialPort;
 	int _baudRate;
 	bool _readModemResponseStarted;
-	unsigned int _loop_call_time;
-	unsigned int _idle_connection_data_check_time;
-	unsigned int _one_second_time;
+	unsigned long _loop_call_time;
+	unsigned long _idle_connection_data_check_time;
+	unsigned long _one_second_time;
 	uint8_t _switch_pin;
 	uint8_t _reset_pin;
+	bool	_dtmf_required = false;
 
 	static VSIM900* _inst;
 	char _modemAPN[MODEM_MAX_APN_LENGTH+1];
@@ -157,6 +159,11 @@ private:
 	int setModemStatus(char *eilute);
 	void modemStatusChanged();
 	void resetModemStates();
+	void blinkModemStatus();
+	void doModemHealtCheck();
+	void _blink(int time_ms=50, int count=1);
+	void _debug(const String& tekstas);
+	void _wdr();
 
 };
 
