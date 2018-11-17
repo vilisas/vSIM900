@@ -45,7 +45,7 @@
 
 #define COMMAND_ASK_FOR_TCP_DATA "AT+CIPRXGET=3,30"
 
-//#define USE_WATCHDOG 1
+#define USE_WATCHDOG 1
 
 
 enum modemError{

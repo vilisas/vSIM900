@@ -4,6 +4,7 @@
  *  Created on: 2017-08-05
  *      Author: vilisas / sutemos at sutemos dot lt
  *      free for commercial and non commercial use
+ *
  */
 
 #include "vSIM900.h"
@@ -58,7 +59,6 @@ void VSIM900::resetModem(){
 int VSIM900::sendATCommand(const String& cmd, unsigned int dWait, char retries, bool ignoreErrors){
 // kai ignoreErrors = false, tai nutraukiam cikla ir aptike klaida
 // kai ignoreErrors = true, tai cikla kartojam net ir aptike klaida. To reikia, kai tikrinam pvz PIN busena
-	_debug("sendATCommand" + cmd);
   uint8_t i=0;
   modem.status=msUNKNOWN;
   _serialPort->setTimeout(1000);
@@ -108,6 +108,7 @@ void VSIM900::serialEvent(){
 
 /*
  * initializes modem, also set's up GPRS connection
+ * TODO: atskirti GSM ir GPRS dalis
  */
 int VSIM900::initModem(){
   char counter, i = 0;
@@ -344,6 +345,7 @@ void VSIM900::readModemResponse(){
 // apsauga
 //    if (index >= BUFFER_SIZE) index = 0;   // gal geriau index=BUFFER_SIZE-1
 	if (indx >= MODEM_BUFFER_SIZE) indx = MODEM_BUFFER_SIZE-1;
+
   }
   _readModemResponseStarted = false;
 }
@@ -351,22 +353,18 @@ void VSIM900::readModemResponse(){
 int VSIM900::setModemStatus(char *eilute){
 // jei tai buvo modemo statuso pranesimas - grazinam 1, kitu atveju 0
 
- if (strcmp(eilute, "OK") == 0)             { modem.status = msOK;    modem.ok=true;  modem.error=false;   }
+      if (strcmp(eilute, "OK") == 0)        { modem.status = msOK;    modem.ok=true;  modem.error=false;   }
  else if (strcmp(eilute, "ERROR") == 0)     { modem.status = msERROR; modem.ok=false; modem.error=true;   }
  else if (strcmp(eilute, "RDY") == 0)       { modem.status = msREADY; modem.initialized = false;    }
  else if (strcmp(eilute, "NO CARRIER") == 0){ modem.status = msNOCARIER; modem.dtmftimer = 0; }
  else if (strcmp(eilute, "RING") == 0)      { modem.status = msRING;      }
  else if (strcmp(eilute, "CONNECT") == 0)   { modem.status = msCONNECT;     }
- // NURODYTA ZEMIAU
- //else if (strcmp(eilute, "NORMAL POWER DOWN") == 0)   { modem.status = MODEM_POWER_DOWN;     }
  else if (strcmp(eilute, "+CPIN: READY") == 0)   { modem.status = msPIN_READY; modem.pin_ok=true;    }
  else if (strcmp(eilute, "SERVER OK") == 0)   { modem.status = msSERVER_OK; modem.server_ok=true;    }
  else if (strcmp(eilute, "SERVER CLOSE") == 0)   { modem.status = msSERVER_CLOSE; modem.server_ok=false;    }
  else if (strncmp(eilute, "+CIPRXGET:1",11) == 0)   { modem.status = msDATA_AVAILABLE; modem.data_available=true; modem.datatimer=1; _debug(F("+DATA_AVAIL"));   }
  else if (strncmp(eilute, "+CIPRXGET: 3",12) == 0)   {
-//     int bytesReceived = 0;
      modem.status = msDATA_RECEIVING_HEX;
-//     sscanf(&eilute[11], "%*d,%d,%d",&bytesReceived, &modem.hexBytesAvailable);
      sscanf(eilute+11, "%*d,%*d,%d", &modem.hexBytesAvailable);
 //     _debug("HEX data..R/A"+String(bytesReceived, DEC)+"/"+String(modem.hexBytesAvailable, DEC) + " left");
 //    debugA(eilute);
@@ -389,18 +387,15 @@ int VSIM900::setModemStatus(char *eilute){
    modem.dtmftimer=DTMF_TIMEOUT;
     // # arba * isvalo dtmf eilute, kas reiskia, kad pradedama nauja komanda.
     if ((dtmf_code == '#') || (dtmf_code == '*')) {
- //   	modem.dtmf = String(eilute[6]);
     	modem.dtmfCMD[0] = eilute[6];
     	modem.dtmfCMD[1] = 0;
     }
     else {
-      //strcat(modem.dtmfCMD, eilute[6]);
     	uint8_t cmdSize = strlen(modem.dtmfCMD);
     	if (cmdSize < sizeof(modem.dtmfCMD)-1){
     		modem.dtmfCMD[cmdSize] = eilute[6];
     		modem.dtmfCMD[cmdSize+1] = 0;
     	}
-//      modem.dtmf = modem.dtmf + String(eilute[6]);
     }
     return(modem.status);
   }
@@ -533,32 +528,19 @@ void VSIM900::loop() {
 //			_debug(String(millis()));
 			if (modem.resetTimer <= 0) {
 				modem.resetTimer = MODEM_RESET_DELAY;
-
 				_debug(F("+MODEM:RESET"));
-//		    delay(1000);
 				modemState i = initModem();
 				if (i != msINIT_COMPLETED){
 					_blink(25, 20);						// indicate problem by fast blinking LED
 				}
 			}
 		}
-
 		_one_second_time = millis();
 	}
-
-
-//    if ((modem.datatimer % IDLE_CONNECTION_CHECK_FOR_DATA_SECONDS) == 0) {
-//        modem.data_available=true;
-//        _debug(F("asking for data.."));
-//    }
 
 	if (modem.data_available){
 		askForTCPData();
 	}
-
-
-
-
 }
 
 void VSIM900::resetModemStates(){
@@ -596,19 +578,12 @@ void VSIM900::resetModemStates(){
 }
 
 int VSIM900::sendModemDataChar(char *dataToSend, int count){
-//  char s;
-//  int i;
   modem.canSendNewPacket = false;
   if (count >0) {
-	//sendb
 	  char buffer[20];
 	  sprintf_P(buffer, PSTR("AT+CIPSEND=%d\r\n"), count);
 	  sendATCommandChar(buffer);
-//	  serialPort->write(buffer);
-//    String atcmd = "AT+CIPSEND=" + String(count, DEC);
-//    sendATCommand((atcmd),100,1,false);
 	  _serialPort->write(dataToSend, count);
-//    for (i=0; i<count; i++) serialPort->write(dataToSend[i]);
 	modem.data_bytes_sent += count;
   }
 return(0);
@@ -627,7 +602,6 @@ void VSIM900::askForTCPData(){
 	modem.data_available=false;
 	sendATCommand(F(COMMAND_ASK_FOR_TCP_DATA));
 }
-
 
 int VSIM900::hexToChar(char *src, char *dst, int count){
   int i=0;
@@ -677,7 +651,7 @@ void VSIM900::doModemHealtCheck() {
 				_debug(F("asking for data.."));
 			}
 		} else {
-//TCP Client stuff originalioj programoj
+// TCP Client stuff originalioj programoj
 			}
 
 }
