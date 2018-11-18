@@ -29,6 +29,7 @@
 // bandome ijungti modema is naujo (low, high, low seka MODEM_SWITCH_PIN)
 #define MODEM_SWITCH_POWER_AFTER_FAILURES 10
 
+
 // jei modemas neinicializuotas, arba atsijungem nuo gprs, ar nepavyko inicializacija, tai cia nurodomas
 // uzlaikymo laikas sekundemis, po kurios bus bandoma inicializuot modema is naujo
 #define MODEM_RESET_DELAY 20
@@ -46,8 +47,8 @@ enum modemError : uint8_t {
 	meINIT, mePIN, meNETWORK, meGPRS, meIP, meCIICR, meDTMF, meNO_ERRORS
 };
 
-enum modemState : int {
-	msUNKNOWN, msOK, msERROR, msNOCARIER, msRING, msCONNECT, msREADY, msPOWER_DOWN, msPIN_READY, msSERVER_OK, msSERVER_CLOSE,
+enum modemState : uint8_t {
+	msUNKNOWN=0, msOK, msERROR, msNOCARIER, msRING, msCONNECT, msREADY, msPOWER_DOWN, msPIN_READY, msSERVER_OK, msSERVER_CLOSE,
 	msDATA_AVAILABLE, msDATA_RECEIVING_HEX, msPDP_DEACT, msCLIENT_CONNECTED, msCLIENT_DISCONNECTED, msCLIENT_ONLINE, msCLIENT_OFFLINE,
 	ms_READY_TO_SEND, msSEND_OK, msDATA_ACCEPT, msDTMF_RECEIVED, msVALDIKLIS_PREFIX, msINIT_COMPLETED, msCSQ, msCMTE,
 	msOTHER
@@ -71,9 +72,9 @@ struct GModem{
     bool sendATResponseToClient;
     bool canSendNewPacket;
     unsigned int resetTimer;
-    char dtmftimer;
-    char datatimer;
-    char init_failure_counter;
+//    char dtmftimer;
+    uint8_t datatimer;
+    uint8_t init_failure_counter = 0;
     modemState status;
     char rxpacket[MODEM_BUFFER_SIZE];
     int rssi;
@@ -81,7 +82,6 @@ struct GModem{
     int rxpacketsize;
     int temperature;
 	int reconnect_timer;
-	int soundRelayLaikotarpis;
 	unsigned int gprsFailures;
 	unsigned long last_dataReceivedTimestamp;		// GPRS watchdog. Resetui, jei po nustatyto laiko negaunam jokio paketo
 													// neatsizvelgiant i TCP ir PDP busenas.
@@ -105,7 +105,7 @@ struct GModem{
 class VSIM900  {
 public:
 	VSIM900(HardwareSerial& hwPort, uint32_t baud);
-	virtual ~VSIM900();
+	virtual ~VSIM900(){}
 	void setup();
 	void loop();
 	void switchModem();
@@ -113,14 +113,12 @@ public:
 	bool setAPN(const String& apn);
 	int sendATCommand(const String& cmd, unsigned int dWait=200, char retries=2, bool ignoreErrors=false);
 	int sendATCommandChar(char *cmd);
-	int sendModemDataChar(char *dataToSend, int count=0);
-	void (*onStatusChanged)(modemState status) = nullptr;
-
-	int hexToChar(char *src, char *dst, int count);
-	int sendModemDataString(const String& dataToSend);
+	int sendString(const String& dataToSend);
+	int sendChar(char *dataToSend, int count=0);
 	modemError initModem();
+	void (*onStatusChanged)(modemState status) = nullptr;
 	void readModemResponse();
-	void modemAnswer();
+	void modemAnswerCall();
 	void modemHangUp();
 	void askForTCPData();
 	void serialEvent();
@@ -133,10 +131,10 @@ public:
 	void setDTMFCallback(void (* dtmf)(const char tone)){ this->dtmf__  = dtmf;}
 	void setSpecialCommandCallback(void (* specialCommandCallback)(char *commandLine, bool replyToSerial)) { this->specialCommand__ = specialCommandCallback;}
 	GModem   modem;
+	HardwareSerial* serialPort;
 
 private:
-	HardwareSerial* _serialPort;
-	int _baudRate;
+	unsigned int _baudRate;
 	bool _readModemResponseStarted;
 	unsigned long _loop_call_time;
 	unsigned long _idle_connection_data_check_time;
@@ -157,10 +155,11 @@ private:
 	void modemStatusChanged();
 	void resetModemStates();
 	void blinkModemStatus();
-	void doModemHealtCheck();
+	void checkModemHealth();
 	void blink(int time_ms=50, int count=1);
 	void debug(const String& tekstas);
 	void _wdr();
+	int hexToChar(char *src, char *dst, int count);
 
 };
 
