@@ -48,14 +48,14 @@
 #define USE_WATCHDOG 1
 
 
-enum modemError : int {
+enum modemError : uint8_t {
 	meINIT, mePIN, meNETWORK, meGPRS, meIP, meCIICR, meDTMF, meNO_ERRORS
 };
 
 enum modemState : int {
 	msUNKNOWN, msOK, msERROR, msNOCARIER, msRING, msCONNECT, msREADY, msPOWER_DOWN, msPIN_READY, msSERVER_OK, msSERVER_CLOSE,
 	msDATA_AVAILABLE, msDATA_RECEIVING_HEX, msPDP_DEACT, msCLIENT_CONNECTED, msCLIENT_DISCONNECTED, msCLIENT_ONLINE, msCLIENT_OFFLINE,
-	ms_READY_TO_SEND, msSEND_OK, msDATA_ACCEPT, msDTMF_RECEIVED, msVALDIKLIS_PREFIX, msINIT_COMPLETED,
+	ms_READY_TO_SEND, msSEND_OK, msDATA_ACCEPT, msDTMF_RECEIVED, msVALDIKLIS_PREFIX, msINIT_COMPLETED, msCSQ, msCMTE,
 	msOTHER
 };
 
@@ -159,6 +159,7 @@ private:
 	static VSIM900* _inst;
 	char _modemAPN[MODEM_MAX_APN_LENGTH+1];
 	char _readBuffer[MODEM_BUFFER_SIZE];
+	modemState parseModemStatus(char *eilute);
 	modemState setModemStatus(char *eilute);
 	void modemStatusChanged();
 	void resetModemStates();

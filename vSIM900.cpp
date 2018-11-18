@@ -350,6 +350,42 @@ void VSIM900::readModemResponse(){
   _readModemResponseStarted = false;
 }
 
+/*
+ * converts text to enumerated type
+ */
+modemState VSIM900::parseModemStatus(char* eilute) {
+
+     if (strcmp(eilute, "OK") == 0				)			{ return msOK;}
+else if (strcmp(eilute, "ERROR") == 0			)			{ return msERROR;}
+else if (strcmp(eilute, "RDY") == 0				)			{ return msREADY;}
+else if (strcmp(eilute, "NO CARRIER"			) == 0)		{ return msNOCARIER;}
+else if (strcmp(eilute, "RING") == 0			)			{ return msRING;}
+else if (strcmp(eilute, "CONNECT") == 0			)			{ return msCONNECT;}
+else if (strcmp(eilute, "+CPIN: READY"			) == 0)		{ return msPIN_READY;}
+else if (strcmp(eilute, "SERVER OK") == 0		)			{ return msSERVER_OK;}
+else if (strcmp(eilute, "SERVER CLOSE") == 0	)			{ return msSERVER_CLOSE;}
+else if (strncmp(eilute, "+CIPRXGET:1",11) == 0	)			{ return msDATA_AVAILABLE;}
+else if (strncmp(eilute, "+CIPRXGET: 3",12) == 0)			{ return msDATA_RECEIVING_HEX; }
+else if (strcmp(eilute, "+PDP: DEACT") == 0		)			{ return msPDP_DEACT; }
+else if (strcmp(eilute, "NORMAL POWER DOWN")== 0)			{ return msPOWER_DOWN; }
+else if (strncmp(eilute, "REMOTE IP:",10) == 0	)			{ return msCLIENT_CONNECTED; } // TODO atskirt kai klientas prisijungia ir kai mes prisijungiam
+else if (strncmp(eilute, "CONNECT OK",10) == 0	)			{ return msCLIENT_CONNECTED; }
+else if (strncmp(eilute, "STATE: CONNECT OK",17 ) == 0)		{ return msCLIENT_ONLINE; }
+else if (strncmp(eilute, "STATE: SERVER LIS",17 ) == 0)		{ return msCLIENT_OFFLINE;  }
+else if (strcmp(eilute, "CLOSED"				) == 0)		{ return msCLIENT_DISCONNECTED; }
+else if (strcmp(eilute, ">"						) == 0)		{ return ms_READY_TO_SEND; }
+else if (strcmp(eilute, "SEND OK"				) == 0)		{ return msSEND_OK; }
+else if (strncmp(eilute, "DATA ACCEPT", 11		) == 0)		{ return msDATA_ACCEPT; }
+else if (strncmp(eilute, "+DTMF:", 6			) == 0)		{ return msDTMF_RECEIVED;}
+else if (strncmp(eilute, MODEM_AT_COMMAND_PREFIX, MODEM_AT_CMD_PREFIX_LENGTH) == 0) { return  msVALDIKLIS_PREFIX; }
+else if (strncmp(eilute, "+CSQ:", 5				) == 0)		{ return msCSQ; }
+else if (strncmp(eilute, "+CMTE:", 6			) == 0)		{ return msCMTE;}
+
+	return msOTHER;
+}
+
+
+
 modemState VSIM900::setModemStatus(char *eilute){
 
       if (strcmp(eilute, "OK") == 0)        { modem.status = msOK;    modem.ok=true;  modem.error=false;   }
@@ -666,6 +702,7 @@ void VSIM900::debug(const String& tekstas) {
 		__debug(tekstas);
 	}
 }
+
 
 void VSIM900::_wdr() {
 #ifdef USE_WATCHDOG
