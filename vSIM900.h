@@ -48,11 +48,11 @@
 #define USE_WATCHDOG 1
 
 
-enum modemError{
-	meINIT, mePIN, meNETWORK, meGPRS, meIP, meCIICR, meDTMF
+enum modemError : int {
+	meINIT, mePIN, meNETWORK, meGPRS, meIP, meCIICR, meDTMF, meNO_ERRORS
 };
 
-enum modemState {
+enum modemState : int {
 	msUNKNOWN, msOK, msERROR, msNOCARIER, msRING, msCONNECT, msREADY, msPOWER_DOWN, msPIN_READY, msSERVER_OK, msSERVER_CLOSE,
 	msDATA_AVAILABLE, msDATA_RECEIVING_HEX, msPDP_DEACT, msCLIENT_CONNECTED, msCLIENT_DISCONNECTED, msCLIENT_ONLINE, msCLIENT_OFFLINE,
 	ms_READY_TO_SEND, msSEND_OK, msDATA_ACCEPT, msDTMF_RECEIVED, msVALDIKLIS_PREFIX, msINIT_COMPLETED,
@@ -123,14 +123,12 @@ public:
 	int sendATCommandChar(char *cmd);
 	int sendModemDataChar(char *dataToSend, int count=0);
 	bool setAPN(const String& apn);
-	void (*debug)(const String& tekstas) = nullptr;
 	void (*valdiklioKomanda)(char *commandLine, bool toSerial = false) = nullptr;
 	void (*onStatusChanged)(modemState status) = nullptr;
-	void (*blink)(int delay, int count) = nullptr;
 
 	int hexToChar(char *src, char *dst, int count);
 	int sendModemDataString(const String& dataToSend);
-	int initModem();
+	modemError initModem();
 	void readModemResponse();
 	void modemAnswer();
 	void modemHangUp();
@@ -140,6 +138,8 @@ public:
 	void setResetPin(uint8_t resetPin) 	 { _reset_pin 	= resetPin;	}
 	void setSwitchPin(uint8_t switchPin) { _switch_pin 	= switchPin;}
 	void setDTMFRequired(bool state)	 { _dtmf_required = state;	}
+	void setDebugCallback(void (* debug)(const String&)){ this->__debug = debug;}
+	void setBlinkCallback(void (* blink)(int, int))		{ this->__blink = blink;}
 	GModem   modem;
 
 private:
@@ -152,17 +152,20 @@ private:
 	uint8_t _switch_pin;
 	uint8_t _reset_pin;
 	bool	_dtmf_required = false;
+	void (*__blink)(int delay, int count) = nullptr;
+	void (*__debug)(const String& tekstas) = nullptr;
+
 
 	static VSIM900* _inst;
 	char _modemAPN[MODEM_MAX_APN_LENGTH+1];
 	char _readBuffer[MODEM_BUFFER_SIZE];
-	int setModemStatus(char *eilute);
+	modemState setModemStatus(char *eilute);
 	void modemStatusChanged();
 	void resetModemStates();
 	void blinkModemStatus();
 	void doModemHealtCheck();
-	void _blink(int time_ms=50, int count=1);
-	void _debug(const String& tekstas);
+	void blink(int time_ms=50, int count=1);
+	void debug(const String& tekstas);
 	void _wdr();
 
 };
