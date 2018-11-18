@@ -33,13 +33,7 @@
 // uzlaikymo laikas sekundemis, po kurios bus bandoma inicializuot modema is naujo
 #define MODEM_RESET_DELAY 20
 
-
-#ifndef GPRS_APN
-# define GPRS_APN "\"internet\""
-#endif
-
 #define GET_TIMESTAMP (millis() / 1000)
-#define DTMF_TIMEOUT 5
 #define MODEM_AT_COMMAND_PREFIX "#!#"
 #define MODEM_AT_CMD_PREFIX_LENGTH 3
 
@@ -62,9 +56,7 @@ enum modemState : int {
 typedef struct GModem GModem;
 
 struct GModem{
-    bool error;
-    bool ok;
-    bool pin_ok;
+	bool pin_ok;
     bool network_ok;
     bool gprs_ok;
     bool server_ok;
@@ -82,7 +74,6 @@ struct GModem{
     char dtmftimer;
     char datatimer;
     char init_failure_counter;
-//    char status;
     modemState status;
     char rxpacket[MODEM_BUFFER_SIZE];
     int rssi;
@@ -107,7 +98,7 @@ struct GModem{
     char ip_address[16];
 //    String remote;
 //    String dtmf;
-    char dtmfCMD[10];
+//    char dtmfCMD[10];
 };
 
 
@@ -119,11 +110,10 @@ public:
 	void loop();
 	void switchModem();
 	void resetModem();
+	bool setAPN(const String& apn);
 	int sendATCommand(const String& cmd, unsigned int dWait=200, char retries=2, bool ignoreErrors=false);
 	int sendATCommandChar(char *cmd);
 	int sendModemDataChar(char *dataToSend, int count=0);
-	bool setAPN(const String& apn);
-	void (*valdiklioKomanda)(char *commandLine, bool toSerial = false) = nullptr;
 	void (*onStatusChanged)(modemState status) = nullptr;
 
 	int hexToChar(char *src, char *dst, int count);
@@ -138,8 +128,10 @@ public:
 	void setResetPin(uint8_t resetPin) 	 { _reset_pin 	= resetPin;	}
 	void setSwitchPin(uint8_t switchPin) { _switch_pin 	= switchPin;}
 	void setDTMFRequired(bool state)	 { _dtmf_required = state;	}
-	void setDebugCallback(void (* debug)(const String&)){ this->__debug = debug;}
-	void setBlinkCallback(void (* blink)(int, int))		{ this->__blink = blink;}
+	void setDebugCallback(void (* debug)(const String&)){ this->debug__ = debug;}
+	void setBlinkCallback(void (* blink)(int, int))		{ this->blink__ = blink;}
+	void setDTMFCallback(void (* dtmf)(const char tone)){ this->dtmf__  = dtmf;}
+	void setSpecialCommandCallback(void (* specialCommandCallback)(char *commandLine, bool replyToSerial)) { this->specialCommand__ = specialCommandCallback;}
 	GModem   modem;
 
 private:
@@ -152,9 +144,10 @@ private:
 	uint8_t _switch_pin;
 	uint8_t _reset_pin;
 	bool	_dtmf_required = false;
-	void (*__blink)(int delay, int count) = nullptr;
-	void (*__debug)(const String& tekstas) = nullptr;
-
+	void (*blink__)(int delay, int count) = nullptr;
+	void (*debug__)(const String& tekstas) = nullptr;
+	void (*dtmf__)(const char tone) = nullptr;
+	void (*specialCommand__)(char *commandLine, bool replyToSerial = false) = nullptr;
 
 	static VSIM900* _inst;
 	char _modemAPN[MODEM_MAX_APN_LENGTH+1];
