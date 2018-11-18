@@ -116,7 +116,6 @@ public:
 	int sendString(const String& dataToSend);
 	int sendChar(char *dataToSend, int count=0);
 	modemError initModem();
-	void (*onStatusChanged)(modemState status) = nullptr;
 	void readModemResponse();
 	void modemAnswerCall();
 	void modemHangUp();
@@ -130,6 +129,7 @@ public:
 	void setBlinkCallback(void (* blink)(int, int))		{ this->blink__ = blink;}
 	void setDTMFCallback(void (* dtmf)(const char tone)){ this->dtmf__  = dtmf;}
 	void setSpecialCommandCallback(void (* specialCommandCallback)(char *commandLine, bool replyToSerial)) { this->specialCommand__ = specialCommandCallback;}
+	void setStatusChangeCallback(void (*statusChangeCallback)(modemState status)) {this->onStatusChanged = statusChangeCallback;}
 	GModem   modem;
 	HardwareSerial* serialPort;
 
@@ -146,6 +146,7 @@ private:
 	void (*debug__)(const String& tekstas) = nullptr;
 	void (*dtmf__)(const char tone) = nullptr;
 	void (*specialCommand__)(char *commandLine, bool replyToSerial = false) = nullptr;
+	void (*onStatusChanged)(modemState status) = nullptr;
 
 	static VSIM900* _inst;
 	char _modemAPN[MODEM_MAX_APN_LENGTH+1];

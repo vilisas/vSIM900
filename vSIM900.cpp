@@ -144,7 +144,7 @@ modemError VSIM900::initModem(){
 //  delay(200);
   modemHangUp();
   sendATCommand(F("AT+CIPSHUT"));
-
+  _wdr();
   delay(2000);
   i=15;		// kiek kartu tikrinti tinklo busena, kol pasiduosim.
   blink(100,4);
@@ -169,6 +169,7 @@ modemError VSIM900::initModem(){
    delay(2000);
 counter=0;
 
+_wdr();
 do {
   sendATCommand(F("AT+CGATT?"), 4000, 1, true);
 //  modem.gprs_ok = (modem.response.substring(8)=="1");
