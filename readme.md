@@ -1,15 +1,17 @@
-Vilius Bilinkevicius, 2018
-
 vSIM900
+Custom library for SIM900 GSM modems
 
-Custom SIM900 library.
-Main goals of this library to:
-1) have TCP connection
-2) at the same time stil be able to initiate/answer GSM calls
-3) ability to send modem replies back to TCP connection
+Vilius Bilinkevicius, 2018
+sutemos at sutemos dot lt
+
+
+Main goals of this library:
+
+1) to have a TCP connection
+2) at the same time stil to be able to initiate/answer GSM calls
+3) ability to send modem replies to AT commands back to TCP connection
 4) DTMF tone generating and detection
 
-It was (and still is) a part of one of my programs, just now I'm extracting it as a library.
+It was (and still is) a part of one of my programs, now I'm extracting it as a library.
 
-
-Pin codes should be disabled
+PIN codes should be disabled

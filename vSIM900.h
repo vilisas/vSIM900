@@ -2,7 +2,7 @@
  * VSIM900.h
  *
  *  Created on: 2017-08-05
- *      Author: vilisas
+ *      Author: Vilius Bilinkevicius
  */
 
 #include <Arduino.h>
@@ -36,7 +36,7 @@
 
 #define GET_TIMESTAMP (millis() / 1000)
 #define MODEM_AT_COMMAND_PREFIX "#!#"
-#define MODEM_AT_CMD_PREFIX_LENGTH 3
+#define MODEM_AT_CMD_PREFIX_LENGTH sizeof(MODEM_AT_COMMAND_PREFIX) - 1
 
 #define COMMAND_ASK_FOR_TCP_DATA "AT+CIPRXGET=3,30"
 
@@ -54,9 +54,9 @@ enum modemState : uint8_t {
 	msOTHER
 };
 
-typedef struct GModem GModem;
+//typedef struct GModem GModem;
 
-struct GModem{
+typedef struct GModem{
 	bool pin_ok;
     bool network_ok;
     bool gprs_ok;
@@ -99,7 +99,7 @@ struct GModem{
 //    String remote;
 //    String dtmf;
 //    char dtmfCMD[10];
-};
+} GModem;
 
 
 class VSIM900  {

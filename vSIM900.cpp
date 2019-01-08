@@ -2,8 +2,7 @@
  * VSIM900.cpp
  *
  *  Created on: 2017-08-05
- *      Author: vilisas / sutemos at sutemos dot lt
- *      free for commercial and non commercial use
+ *      Author: Vilius Bilinkevicius / sutemos at sutemos dot lt
  *
  */
 
@@ -631,8 +630,6 @@ void VSIM900::resetModemStates(){
   modem.datatimer=1;
   modem.received_new_packet=false;
   modem.rxpacketsize=0;
-//  modem.has_dtmf=false;
-//  modem.dtmfCMD[0] = 0;
   modem.last_packet_timestamp = getTimeStamp();
   modem.sendATResponseToClient = false;
   modem.temperature = 25;
