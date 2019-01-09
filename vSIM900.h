@@ -79,7 +79,7 @@ typedef struct GModem{
     char rxpacket[MODEM_BUFFER_SIZE];
     int rssi;
     int ber;
-    int rxpacketsize;
+    unsigned int rxpacketsize;
     int temperature;
 	int reconnect_timer;
 	unsigned int gprsFailures;
@@ -114,7 +114,7 @@ public:
 	int sendATCommand(const String& cmd, unsigned int dWait=200, char retries=2, bool ignoreErrors=false);
 	int sendATCommandChar(char *cmd);
 	int sendString(const String& dataToSend);
-	int sendChar(char *dataToSend, int count=0);
+	void sendChar(char *dataToSend, int count=0);
 	modemError initModem();
 	void readModemResponse();
 	void modemAnswerCall();
@@ -123,8 +123,8 @@ public:
 	void serialEvent();
 	uint16_t getTimeStamp() 			 { return GET_TIMESTAMP; 	}
 	void setResetPin(uint8_t resetPin) 	 { _reset_pin 	= resetPin;	}
-	void setSwitchPin(uint8_t switchPin) { _switch_pin 	= switchPin;}
 	void setDTMFRequired(bool state)	 { _dtmf_required = state;	}
+	void setSwitchPin(uint8_t switchPin) { _switch_pin 	= switchPin;}
 	void setDebugCallback(void (* debug)(const String&)){ this->debug__ = debug;}
 	void setBlinkCallback(void (* blink)(int, int))		{ this->blink__ = blink;}
 	void setDTMFCallback(void (* dtmf)(const char tone)){ this->dtmf__  = dtmf;}

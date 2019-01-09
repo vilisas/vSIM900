@@ -18,7 +18,6 @@ VSIM900* VSIM900::_inst;
 
 // constructor
 VSIM900::VSIM900(HardwareSerial& hwPort, uint32_t baud) {
-	// TODO Auto-generated constructor stub
 	_inst = this;
 	serialPort = &hwPort;
 	_baudRate = baud;
@@ -62,17 +61,14 @@ int VSIM900::sendATCommand(const String& cmd, unsigned int dWait, char retries, 
 
   do {
 	_wdr();
-//    Serial.print("\n");
     serialPort->println(cmd);
     delay(dWait);
-//    serialEvent();
     readModemResponse();
   if (!ignoreErrors) {
       if (modem.status !=msUNKNOWN) i=retries;
   } else {
       if ((modem.status != msERROR) and (modem.status != msUNKNOWN)) i= retries;
   }
-
     i++;
   } while (i<retries);
   return (modem.status);
@@ -88,7 +84,6 @@ int VSIM900::sendATCommandChar(char *cmd){
     serialPort->write(cmd, strlen(cmd));
     serialPort->write("\r\n");
     delay(100);
-//    serialEvent();
     readModemResponse();
   return (modem.status);
 }
@@ -565,7 +560,7 @@ void VSIM900::setup() {
 }
 
 /*
- * call this from you loop()
+ * call this from your loop()
  */
 void VSIM900::loop() {
 	unsigned long ms = millis();
@@ -643,7 +638,7 @@ void VSIM900::resetModemStates(){
 
 }
 
-int VSIM900::sendChar(char *dataToSend, int count){
+void VSIM900::sendChar(char *dataToSend, int count){
   modem.canSendNewPacket = false;
   if (count >0) {
 	  char buffer[20];
@@ -652,7 +647,6 @@ int VSIM900::sendChar(char *dataToSend, int count){
 	  serialPort->write(dataToSend, count);
 	modem.data_bytes_sent += count;
   }
-return(0);
 }
 
 int VSIM900::sendString(const String& dataToSend){
