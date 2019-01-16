@@ -88,7 +88,14 @@ int VSIM900::sendATCommandChar(char *cmd){
   return (modem.status);
 }
 
-
+/**
+ * sends AT command to modem and writes modem response back to client. Must be null terminated.
+ *
+ */
+int VSIM900::sendAtCommandRespondToClient(char *cmd){
+	modem.sendATResponseToClient = true;
+	return sendATCommandChar(cmd);
+}
 /*
  * you can call this from main loop or serialEvent() in main skech
  */
@@ -371,7 +378,7 @@ else if (strcmp(eilute, ">"						) == 0)		{ return ms_READY_TO_SEND; }
 else if (strcmp(eilute, "SEND OK"				) == 0)		{ return msSEND_OK; }
 else if (strncmp(eilute, "DATA ACCEPT", 11		) == 0)		{ return msDATA_ACCEPT; }
 else if (strncmp(eilute, "+DTMF:", 6			) == 0)		{ return msDTMF_RECEIVED;}
-else if (strncmp(eilute, MODEM_AT_COMMAND_PREFIX, MODEM_AT_CMD_PREFIX_LENGTH) == 0) { return  msVALDIKLIS_PREFIX; }
+else if (strncmp(eilute, COMMAND_PREFIX, sizeof(COMMAND_PREFIX)-1) == 0) { return  msVALDIKLIS_PREFIX; }
 else if (strncmp(eilute, "+CSQ:", 5				) == 0)		{ return msCSQ; }
 else if (strncmp(eilute, "+CMTE:", 6			) == 0)		{ return msCMTE;}
 

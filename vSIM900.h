@@ -35,8 +35,8 @@
 #define MODEM_RESET_DELAY 20
 
 #define GET_TIMESTAMP (millis() / 1000)
-#define MODEM_AT_COMMAND_PREFIX "#!#"
-#define MODEM_AT_CMD_PREFIX_LENGTH sizeof(MODEM_AT_COMMAND_PREFIX) - 1
+#define COMMAND_PREFIX "#!#"
+#define COMMAND_PREFIX_LENGTH sizeof(COMMAND_PREFIX) - 1
 
 #define COMMAND_ASK_FOR_TCP_DATA "AT+CIPRXGET=3,30"
 
@@ -113,6 +113,7 @@ public:
 	bool setAPN(const String& apn);
 	int sendATCommand(const String& cmd, unsigned int dWait=200, char retries=2, bool ignoreErrors=false);
 	int sendATCommandChar(char *cmd);
+	int sendAtCommandRespondToClient(char *cmd);
 	int sendString(const String& dataToSend);
 	void sendChar(char *dataToSend, int count=0);
 	modemError initModem();
