@@ -143,7 +143,7 @@ modemError VSIM900::initModem(){
 //  delay (500);
   sendATCommand(F("ATH0"));  // if any..
 //  delay(200);
-  modemHangUp();
+  hangUp();
   sendATCommand(F("AT+CIPSHUT"));
   _wdr();
   delay(2000);
@@ -528,15 +528,14 @@ bool VSIM900::setAPN(const String& apn){
 	return true;
 }
 
-void VSIM900::modemAnswerCall(){
+void VSIM900::answerCall(){
     sendATCommand(F("ATA"));
-//	  _this->debug(F("+MODEM:VOICE_ANSWER"));
     modem.voice_connect_time = 0;
     modem.voice_connected = true;
     modem.voice_activated = false;
 }
 
-void VSIM900::modemHangUp(){
+void VSIM900::hangUp(){
     modem.voice_connect_time = 0;
     modem.voice_connected = false;
     modem.voice_activated = false;
@@ -582,6 +581,13 @@ void VSIM900::loop() {
 
 	// every 10 sec.
 	if (ms - _idle_connection_data_check_time >= 10000){
+		  if (((ms / 1000) - modem.last_dataReceivedTimestamp) > MODEM_MAX_GPRS_INACTIVIY_TIME){
+			  // resetinam GPRS busena.
+			  modem.last_dataReceivedTimestamp = ms / 1000;
+			  modem.gprsFailures++;
+			  debug(F("+MAX_GPRS_INACTIVIY_TIME"));
+			  dropGPRS();
+		  }
 
 		_idle_connection_data_check_time = millis();
 	}
@@ -643,6 +649,15 @@ void VSIM900::resetModemStates(){
   modem.data_bytes_received=0;
   modem.data_bytes_sent=0;
 
+}
+
+void VSIM900::dropGPRS(){
+	  modem.initialized=false;
+	  modem.tcp_connected=false;
+	  sendATCommand(F("AT+CIPCLOSE"));
+	  sendATCommand(F("AT+CIPSHUT"));
+	  modem.gprsFailures++;
+	  debug(F("+GPRS_RESET"));
 }
 
 void VSIM900::sendChar(char *dataToSend, int count){

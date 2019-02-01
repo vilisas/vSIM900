@@ -29,6 +29,8 @@
 // bandome ijungti modema is naujo (low, high, low seka MODEM_SWITCH_PIN)
 #define MODEM_SWITCH_POWER_AFTER_FAILURES 10
 
+// drop gprs if TCP connection is inactive for this time (in seconds)
+#define MODEM_MAX_GPRS_INACTIVIY_TIME 3600
 
 // jei modemas neinicializuotas, arba atsijungem nuo gprs, ar nepavyko inicializacija, tai cia nurodomas
 // uzlaikymo laikas sekundemis, po kurios bus bandoma inicializuot modema is naujo
@@ -117,9 +119,10 @@ public:
 	int sendString(const String& dataToSend);
 	void sendChar(char *dataToSend, int count=0);
 	modemError initModem();
+	void dropGPRS();
 	void readModemResponse();
-	void modemAnswerCall();
-	void modemHangUp();
+	void answerCall();
+	void hangUp();
 	void askForTCPData();
 	void serialEvent();
 	uint16_t getTimeStamp() 			 { return GET_TIMESTAMP; 	}
