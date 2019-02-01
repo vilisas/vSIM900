@@ -21,7 +21,7 @@ VSIM900::VSIM900(HardwareSerial& hwPort, uint32_t baud) {
 	_inst = this;
 	serialPort = &hwPort;
 	_baudRate = baud;
-
+	modem.gprsFailures=0; // mes ji norim nuresetinti tik startavus programai.
 	resetModemStates();
 }
 
