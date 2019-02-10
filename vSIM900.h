@@ -37,8 +37,12 @@
 #define MODEM_RESET_DELAY 20
 
 #define GET_TIMESTAMP (millis() / 1000)
-#define COMMAND_PREFIX "#!#"
-#define COMMAND_PREFIX_LENGTH sizeof(COMMAND_PREFIX) - 1
+
+#ifndef COMMAND_PREFIX
+# define COMMAND_PREFIX "#!#"
+#endif
+
+# define COMMAND_PREFIX_LENGTH sizeof(COMMAND_PREFIX) - 1
 
 #define COMMAND_ASK_FOR_TCP_DATA "AT+CIPRXGET=3,30"
 
@@ -134,6 +138,11 @@ public:
 	void setDTMFCallback(void (* dtmf)(const char tone)){ this->dtmf__  = dtmf;}
 	void setSpecialCommandCallback(void (* specialCommandCallback)(char *commandLine, bool replyToSerial)) { this->specialCommand__ = specialCommandCallback;}
 	void setStatusChangeCallback(void (*statusChangeCallback)(modemState status)) {this->onStatusChanged = statusChangeCallback;}
+	bool isTCPConnected(){return modem.tcp_connected;};
+	bool hasNewData(){return modem.received_new_packet;}
+	unsigned int getReceivedPacketSize(){return modem.rxpacketsize;}
+	char* getPacket(){return modem.rxpacket;}
+	void markPacketReceived();
 	GModem   modem;
 	HardwareSerial* serialPort;
 

@@ -752,7 +752,12 @@ void VSIM900::checkModemHealth() {
 		} else {
 // TCP Client stuff originalioj programoj
 			}
+}
 
+void VSIM900::markPacketReceived(){
+	modem.rxpacket[0] = 0;
+	modem.rxpacketsize = 0;
+	modem.received_new_packet = false;
 }
 
 void VSIM900::blink(int time_ms, int count) {
