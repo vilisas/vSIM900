@@ -46,7 +46,7 @@
 
 #define COMMAND_ASK_FOR_TCP_DATA "AT+CIPRXGET=3,30"
 
-#define USE_WATCHDOG 1
+//#define USE_WATCHDOG 1
 
 
 enum modemError : uint8_t {
@@ -96,7 +96,7 @@ typedef struct GModem{
 	unsigned long data_bytes_sent;
 	unsigned long data_bytes_received;
     unsigned int voice_connect_time;
-    uint16_t hexBytesAvailable;
+    unsigned int hexBytesAvailable;
 	float voltage;
 	char response[MODEM_BUFFER_SIZE+2];
 //    String response;
@@ -111,6 +111,7 @@ typedef struct GModem{
 class VSIM900  {
 public:
 	VSIM900(HardwareSerial& hwPort, uint32_t baud);
+	VSIM900(HardwareSerial &hwPort, uint32_t baud, unsigned int switchPin, unsigned int resetPin);
 	virtual ~VSIM900(){}
 	void setup();
 	void loop();
@@ -149,16 +150,16 @@ public:
 private:
 	unsigned int _baudRate;
 	bool _readModemResponseStarted;
-	unsigned long _loop_call_time;
-	unsigned long _idle_connection_data_check_time;
-	unsigned long _one_second_time;
-	uint8_t _switch_pin;
-	uint8_t _reset_pin;
+	unsigned long _loop_call_time = 0;
+	unsigned long _idle_connection_data_check_time = 0;
+	unsigned long _one_second_time = 0;
+	unsigned int _switch_pin = 0;
+	unsigned int _reset_pin  = 0;
 	bool	_dtmf_required = false;
 	void (*blink__)(int delay, int count) = nullptr;
 	void (*debug__)(const String& tekstas) = nullptr;
 	void (*dtmf__)(const char tone) = nullptr;
-	void (*specialCommand__)(char *commandLine, bool replyToSerial = false) = nullptr;
+	void (*specialCommand__)(char *commandLine, bool replyToSerial) = nullptr;
 	void (*onStatusChanged)(modemState status) = nullptr;
 
 	static VSIM900* _inst;
